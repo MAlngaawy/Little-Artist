@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magical Keyboard Art for Baby!</title>
+    <!-- Load Tailwind CSS for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Tone.js for sound synthesis -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+        /* Apply Inter font and basic styling */
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0; /* Light background */
+            overflow: hidden; /* Prevent scrollbars */
+        }
+
+        /* Container for the main content */
+        .container {
+            text-align: center;
+            background-color: #ffffff;
+            padding: 2.5rem; /* p-10 */
+            border-radius: 1.5rem; /* rounded-3xl */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-xl */
+        }
+
+        /* Styling for the start button */
+        .start-button {
+            background-image: linear-gradient(to right, #6366f1, #8b5cf6); /* from-indigo-500 to-purple-600 */
+            color: white;
+            padding: 1.25rem 2.5rem; /* py-5 px-10 */
+            font-size: 1.5rem; /* text-2xl */
+            font-weight: bold; /* font-bold */
+            border-radius: 9999px; /* rounded-full */
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .start-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+        }
+
+        .start-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Fullscreen container for drawing */
+        .fullscreen-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #1a1a2e; /* Dark background for drawing */
+            display: none; /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+            z-index: 1000; /* Ensure it's on top */
+        }
+
+        /* Show fullscreen container when active */
+        .fullscreen-container.active {
+            display: flex;
+        }
+
+        /* Canvas styling */
+        #drawingCanvas {
+            display: block; /* Remove extra space below canvas */
+            background-color: transparent; /* Canvas background will be the fullscreen-container's background */
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Exit button styling */
+        .exit-button {
+            position: absolute;
+            top: 1rem; /* 4 units of Tailwind spacing */
+            right: 1rem; /* 4 units of Tailwind spacing */
+            background-color: rgba(255, 255, 255, 0.7); /* Semi-transparent white */
+            color: #333;
+            padding: 0.5rem 1rem; /* py-2 px-4 */
+            border-radius: 0.75rem; /* rounded-xl */
+            border: none;
+            cursor: pointer;
+            font-size: 1rem; /* text-base */
+            font-weight: bold;
+            z-index: 1001; /* Above the canvas */
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .exit-button:hover {
+            background-color: rgba(255, 255, 255, 0.9);
+            transform: scale(1.05);
+        }
+
+        /* Hidden class for elements not visible in full screen initially */
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Main content container before full screen -->
+    <div id="mainContent" class="container">
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-6">Welcome, Little Artist!</h1>
+        <p class="text-lg text-gray-600 mb-8">Click the button to enter a magical world where every keyboard press makes art!</p>
+        <button id="startButton" class="start-button">Start Playing!</button>
+    </div>
+
+    <!-- Fullscreen container for drawing -->
+    <div id="fullscreenContainer" class="fullscreen-container">
+        <!-- Canvas for drawing -->
+        <canvas id="drawingCanvas"></canvas>
+        <!-- Exit button -->
+        <button id="exitButton" class="exit-button hidden">Exit</button>
+    </div>
+
+    <script>
+        // Get references to HTML elements
+        const startButton = document.getElementById('startButton');
+        const mainContent = document.getElementById('mainContent');
+        const fullscreenContainer = document.getElementById('fullscreenContainer');
+        const drawingCanvas = document.getElementById('drawingCanvas');
+        const exitButton = document.getElementById('exitButton');
+        const ctx = drawingCanvas.getContext('2d'); // Get 2D rendering context for the canvas
+
+        // Initialize Tone.js synth for sound effects
+        const synth = new Tone.Synth().toDestination();
+
+        // Function to set canvas dimensions to fill the window
+        function setCanvasSize() {
+            drawingCanvas.width = window.innerWidth;
+            drawingCanvas.height = window.innerHeight;
+            // When resizing, we might want to clear the canvas or redraw.
+            // For this app, we'll let new drawings appear on a fresh canvas size.
+        }
+
+        // --- Fullscreen functionality ---
+
+        // Request full screen when the start button is clicked
+        startButton.addEventListener('click', async () => {
+            try {
+                // Attempt to request full screen on the fullscreenContainer element
+                if (fullscreenContainer.requestFullscreen) {
+                    fullscreenContainer.requestFullscreen();
+                } else if (fullscreenContainer.mozRequestFullScreen) { /* Firefox */
+                    fullscreenContainer.mozRequestFullScreen();
+                } else if (fullscreenContainer.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
+                    fullscreenContainer.webkitRequestFullscreen();
+                } else if (fullscreenContainer.msRequestFullscreen) { /* IE/Edge */
+                    fullscreenContainer.msRequestFullscreen();
+                }
+
+                // Start Tone.js audio context only after a user gesture
+                await Tone.start();
+                console.log("AudioContext started successfully!");
+
+            } catch (error) {
+                console.error("Failed to enter fullscreen or start audio:", error);
+                // Potentially display a user-friendly message here if fullscreen fails
+            }
+        });
+
+        // Event listener for full screen changes (e.g., entering or exiting full screen)
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) {
+                // Entered full screen
+                mainContent.classList.add('hidden'); // Hide the initial content
+                fullscreenContainer.classList.add('active'); // Show the full screen container
+                exitButton.classList.remove('hidden'); // Show the exit button
+                setCanvasSize(); // Set canvas size to full screen dimensions
+            } else {
+                // Exited full screen
+                mainContent.classList.remove('hidden'); // Show the initial content
+                fullscreenContainer.classList.remove('active'); // Hide the full screen container
+                exitButton.classList.add('hidden'); // Hide the exit button
+                ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height); // Clear the canvas when exiting
+            }
+        });
+
+        // Event listener for the exit button click
+        exitButton.addEventListener('click', () => {
+            // Check if full screen is active and exit it
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.mozCancelFullScreen) { /* Firefox */
+                document.mozCancelFullScreen();
+            } else if (document.webkitExitFullscreen) { /* Chrome, Safari and Opera */
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) { /* IE/Edge */
+                document.msExitFullscreen();
+            }
+        });
+
+        // Add a resize listener to adjust canvas size if the window is resized while in fullscreen
+        window.addEventListener('resize', () => {
+            if (document.fullscreenElement) {
+                setCanvasSize();
+            }
+        });
+
+        // --- Drawing functionality ---
+
+        // Function to generate a random color
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        // Function to draw a random shape
+        function drawRandomShape(x, y) {
+            ctx.fillStyle = getRandomColor(); // Set fill color to a random color
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'; // Add a subtle shadow
+            ctx.shadowBlur = 10; // Blur the shadow
+            ctx.shadowOffsetX = 5; // Offset shadow horizontally
+            ctx.shadowOffsetY = 5; // Offset shadow vertically
+
+            const shapeType = Math.floor(Math.random() * 3); // 0: circle, 1: rectangle, 2: triangle
+            const size = Math.floor(Math.random() * 100) + 30; // Random size between 30 and 129
+
+            ctx.beginPath(); // Start a new path
+
+            switch (shapeType) {
+                case 0: // Circle
+                    ctx.arc(x, y, size / 2, 0, Math.PI * 2); // Draw a circle
+                    break;
+                case 1: // Rectangle
+                    ctx.rect(x - size / 2, y - size / 2, size, size); // Draw a rectangle
+                    break;
+                case 2: // Triangle
+                    ctx.moveTo(x, y - size / 2); // Top point
+                    ctx.lineTo(x + size / 2, y + size / 2); // Bottom-right point
+                    ctx.lineTo(x - size / 2, y + size / 2); // Bottom-left point
+                    ctx.closePath(); // Close the path to form a triangle
+                    break;
+            }
+
+            ctx.fill(); // Fill the shape with the current fillStyle
+            ctx.shadowColor = 'transparent'; // Reset shadow after drawing
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+        }
+
+        // --- Sound functionality ---
+
+        // Function to play a random sound
+        function playRandomSound() {
+            // Generate a random frequency (e.g., between 200 Hz and 800 Hz)
+            const frequency = Math.random() * 600 + 200;
+            // Generate a random duration (e.g., between 0.1 seconds and 0.5 seconds)
+            const duration = Math.random() * 0.4 + 0.1;
+            // Choose a random oscillator type
+            const oscillatorTypes = ['sine', 'triangle', 'sawtooth', 'square'];
+            const randomType = oscillatorTypes[Math.floor(Math.random() * oscillatorTypes.length)];
+
+            // Set the oscillator type
+            synth.oscillator.type = randomType;
+
+            // Trigger the attack and release of the sound
+            synth.triggerAttackRelease(frequency, duration);
+        }
+
+        // Event listener for keyboard key presses
+        document.addEventListener('keydown', (event) => {
+            // Only draw and play sound if we are in full screen mode
+            if (document.fullscreenElement) {
+                // Get random coordinates within the canvas
+                const randomX = Math.random() * drawingCanvas.width;
+                const randomY = Math.random() * drawingCanvas.height;
+
+                drawRandomShape(randomX, randomY); // Draw a random shape at random coordinates
+
+                // Change the background color of the fullscreen container
+                fullscreenContainer.style.backgroundColor = getRandomColor();
+
+                // Play a random sound effect
+                playRandomSound();
+            }
+        });
+    </script>
+</body>
+</html>
